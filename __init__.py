@@ -1,15 +1,35 @@
+# made for python 3.10.0
+# made by cyberedcake
+
 import os, traceback, re
 
-os.system("color")
-os.system("title WWI Simulator - Loading...")
+supportsColor = True
+inConsole = True
+# ^^ if "inConsole" is false, it will auto-set "supportsColor" to false
+
+global ossystem
+def ossystem(commandLine):
+    if(inConsole == False):
+        return
+    os.system(commandLine)
+
+def color(color):
+    if(supportsColor == True and inConsole == True):
+        return color
+    return ""
+
+ossystem("color")
+ossystem("title WWI Simulator - Loading...")
 print("Loading program... please wait!")
 def title(titleWhat=""):
     if(titleWhat.strip() == ""):
-        os.system("title WWI Simulator")
+        ossystem("title WWI Simulator")
         return
-    os.system("title WWI Simulator - " + titleWhat)
+    ossystem("title WWI Simulator - " + titleWhat)
 def clear():
-    os.system("cls")
+    if(inConsole == False):
+        printF("----------------------------------------")
+    ossystem("cls")
 
 import time, sys, math, subprocess, random, inspect, progressbar, re, json
 from datetime import datetime
@@ -43,33 +63,33 @@ def printF(string, doPrint=True):
     if(doPrint == False):
         return
     string = str(string)
-    string = string.replace("&0", "\u001b[30m")
-    string = string.replace("&1", "\u001b[34m")
-    string = string.replace("&2", "\u001b[32m")
-    string = string.replace("&3", "\u001b[36m")
-    string = string.replace("&4", "\u001b[31m")
-    string = string.replace("&5", "\u001b[35m")
-    string = string.replace("&6", "\u001b[33m")
-    string = string.replace("&7", "\u001b[37m")
-    string = string.replace("&8", "\u001b[30;1m")
-    string = string.replace("&9", "\u001b[34;1m")
-    string = string.replace("&a", "\u001b[32;1m")
-    string = string.replace("&b", "\u001b[36;1m")
-    string = string.replace("&c", "\u001b[31;1m")
-    string = string.replace("&d", "\u001b[35;1m")
-    string = string.replace("&e", "\u001b[33;1m")
-    string = string.replace("&f", "\u001b[37;1m")
-    string = string.replace("&o", "")
-    string = string.replace("&l", "\u001b[1m")
-    string = string.replace("&n", "\u001b[4m")
-    string = string.replace("&h", "\u001b[7m")
-    string = string.replace("&r", "\u001b[0m")
-    sys.stdout.write(string + "\u001b[0m" + ("\n" if "\r" not in string else ""))
+    string = string.replace("&0", color("\u001b[30m"))
+    string = string.replace("&1", color("\u001b[34m"))
+    string = string.replace("&2", color("\u001b[32m"))
+    string = string.replace("&3", color("\u001b[36m"))
+    string = string.replace("&4", color("\u001b[31m"))
+    string = string.replace("&5", color("\u001b[35m"))
+    string = string.replace("&6", color("\u001b[33m"))
+    string = string.replace("&7", color("\u001b[37m"))
+    string = string.replace("&8", color("\u001b[30;1m"))
+    string = string.replace("&9", color("\u001b[34;1m"))
+    string = string.replace("&a", color("\u001b[32;1m"))
+    string = string.replace("&b", color("\u001b[36;1m"))
+    string = string.replace("&c", color("\u001b[31;1m"))
+    string = string.replace("&d", color("\u001b[35;1m"))
+    string = string.replace("&e", color("\u001b[33;1m"))
+    string = string.replace("&f", color("\u001b[37;1m"))
+    string = string.replace("&o", color(""))
+    string = string.replace("&l", color("\u001b[1m"))
+    string = string.replace("&n", color("\u001b[4m"))
+    string = string.replace("&h", color("\u001b[7m"))
+    string = string.replace("&r", color("\u001b[0m"))
+    sys.stdout.write(string + color("\u001b[0m") + ("\n" if "\r" not in string else ""))
     sys.stdout.flush()
 
 # define static variables
-reset = "\u001b[0m"
-ending = "\u001b[36;1m"
+reset = color("\u001b[0m")
+ending = color("\u001b[36;1m")
 seperator = "&c&l&h----------------------------------------------------------------------------------------------"
 
 global randomSeed
@@ -156,11 +176,21 @@ def command():
             command()
             return
 
+        commands = Commands()
+        commands.fetchCommandList()
+
         def functionNotFound(args):
+            if(cmd.lower().strip() in aliases.keys()):
+                execute(aliases.get(cmd.lower().strip()), args)
+                return
             throwError("That command does not exist: /" + cmd)
 
-        commands = Commands()
-        getattr(commands, cmd.lower().strip(), functionNotFound)(args)
+        def execute(cmd, args):
+            potentialReturnValue = getattr(commands, cmd, functionNotFound)(args)
+            if not(potentialReturnValue == None):
+                printF("&f" + str(potentialReturnValue))
+
+        execute(cmd.lower().strip(), args) 
 
     except KeyboardInterrupt as keyboard:
         printF(" ")
@@ -338,37 +368,48 @@ def fromDictLog(log):
     
     return returnThis
 
+global commandsList
 commandsList = []
-    
-class Commands:
-    def commandsList(self):
-        cmdList = []
-        for value in (inspect.getmembers(Commands, predicate=inspect.isfunction)):
-            appended = str(str(value).split(",")[0])
-            appended = appended.replace("('", "")
-            appended = appended.replace("'", "")
-            if(appended.lower() != appended):
-                continue
-            cmdList.append(appended)
-        return cmdList
 
+global aliases
+aliases = {}
+
+class Commands:
+    def fetchCommandList(self):
+        commandsList.clear()
+        for value in (inspect.getmembers(Commands, predicate=inspect.isfunction)):
+            appended = value[0]
+            if not(appended.lower() == appended): # essentially if the function isn't all lowercase, it probably isn't a command (also prevents unnecessary recursion)
+                continue
+            #print(str(appended))
+
+            currentClass = Commands()
+            function = getattr(currentClass, appended)
+            returned = function(["cmd_info"])
+            commandsList.append(returned)
+            if ("aliases" in returned.keys()):
+                for string in returned["aliases"]:
+                    aliases[string] = appended
+    
     # commands
 
     def help(self, args):
-        if(len(args) > 1 and args[0] == "cmd_info"):
+        if(len(args) > 0 and args[0] == "cmd_info"):
             return {'name': 'help',
                     'usage': '/help',
-                    'description': 'Prints a list of commands.'
+                    'description': 'Prints a list of commands.',
+                    'aliases': ['info', 'cmds', 'commands']
                     }
-        
-        for string in Commands().commandsList():
-            printF(string)
+        for currentCommand in commandsList:
+            if(currentCommand == None):
+                continue
+            printF("&r" + currentCommand["usage"] + " - " + currentCommand["description"])
 
     def seed(self, args):
-        if(len(args) > 1 and args[0] == "cmd_info"):
+        if(len(args) > 0 and args[0] == "cmd_info"):
             return {'name': 'seed',
                     'usage': '/seed [new seed]',
-                    'description': 'Shows the current random generator seed.'
+                    'description': 'Shows the current random generator seed or sets it to a string.'
                     }
         
         if(len(args) > 0):
@@ -384,7 +425,8 @@ class Commands:
         if(len(args) > 0 and args[0] == "cmd_info"):
             return {'name': 'roll',
                     'usage': '/roll [amount of dice]',
-                    'description': 'Rolls some dice using the same RNG as the simulator.'
+                    'description': 'Rolls some dice using the same RNG as the simulator.',
+                    'aliases': ['dice', 'die']
                     }
         
         amount = 3
@@ -397,7 +439,7 @@ class Commands:
                 return
             amount = int(args[0])+1
         printF("&7&nRolling " + str(amount-1) + " dice...")
-        time.sleep(0.5)
+        time.sleep((amount-0.8)*0.090) # imagined "progress"
 
         added = 0
         printF(" ")
@@ -417,8 +459,9 @@ class Commands:
     def game(self, args):
         if(len(args) > 0 and args[0] == "cmd_info"):
             return {'name': 'game',
-                    'usage': 'Use /game help for more information',
-                    'description': 'The main command to-be used in this simulator.'
+                    'usage': '/game <startsimulation|getfromid|recent|save|read|list|[game name]> [args...]',
+                    'description': 'The main command for this simulator.',
+                    'aliases': ['main']
                     }
         
         global mostRecentSaved
@@ -683,15 +726,32 @@ class Commands:
             throwError("Available actions: startsimulation, getfromid, recent, save, read, list, <game name>")
 
     def exit(self, args):
+        if(len(args) > 0 and args[0] == "cmd_info"):
+            return {'name': 'exit',
+                    'usage': '/exit',
+                    'description': 'Exits the program.',
+                    'aliases': ['stop']
+                    }
         printF(" ")
         printF("&cExiting program, please wait...")
         title("Exiting program, please wait...")
         exit()
 
-    def eexit(self, args):
+    def qexit(self, args):
+        if(len(args) > 0 and args[0] == "cmd_info"):
+            return {'name': 'qexit',
+                    'usage': '/qexit',
+                    'description': 'Quick exit the program via a proxied exit() call.',
+                    'aliases': ['eexit', 'qstop']
+                    }
         exit()
 
     def restart(self, args):
+        if(len(args) > 0 and args[0] == "cmd_info"):
+            return {'name': 'restart',
+                    'usage': '/restart',
+                    'description': 'Closes the program and attempts to re-open it.'
+                    }
         printF(" ")
         printF("&aRebooting program, please wait...")
         title("Rebooting program, please wait...")
@@ -787,4 +847,10 @@ def reverse(dictionary):
 #    print(str(diceRoll) + " | " + str(diceRoll2) + " = " + str(diceRoll+diceRoll2))
 
 if __name__ == "__main__":
-  command()
+    try:
+        command()
+    except Exception as err:
+        print("--> Fatal error has occurred!")
+        print("--> err: " + str(err))
+        print("--> Press any key to exit")
+        ossystem("pause >NUL")
